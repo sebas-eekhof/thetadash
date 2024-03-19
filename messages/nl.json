@@ -1,3 +1,17 @@
 {
-    
+    "auth": {
+        "create_one_for_free": "Maak er gratis één!",
+        "no_account_yet": "Nog geen account?",
+        "welcome_back": "Welkom terug",
+        "email": "E-mail",
+        "password": "Wachtwoord",
+        "signin": "Aanmelden",
+        "or": "Of",
+        "sign_in_with": "Inloggen met {provider}",
+        "create_a_account": "Maak een account aan",
+        "already_registered": "Al geregistreerd?",
+        "sign_in_instead": "Meld u in plaats daarvan aan.",
+        "email_placeholder": "gebruiker@bedrijf.com",
+        "signout": "Uitloggen"
+    }
 }

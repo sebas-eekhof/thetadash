@@ -3,9 +3,5 @@
 @tailwind utilities;
 
 html, body, #__next {
-    @apply w-full h-full bg-stone-950 text-white;
-}
-
-input, select, textarea, button {
-    @apply outline-none;
+    @apply w-full h-full bg-black text-white;
 }

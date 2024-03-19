@@ -1,3 +1,17 @@
 {
-    
+	"auth": {
+		"welcome_back": "Welcome back",
+		"no_account_yet": "No account yet?",
+		"create_one_for_free": "Create one for free!",
+		"email": "E-Mail",
+		"password": "Password",
+		"signin": "Sign in",
+		"or": "Or",
+		"sign_in_with": "Sign in with {provider}",
+		"create_a_account": "Create a account",
+		"already_registered": "Already registered?",
+		"sign_in_instead": "Sign in instead.",
+		"email_placeholder": "user@company.com",
+		"signout": "Sign out"
+	}
 }
