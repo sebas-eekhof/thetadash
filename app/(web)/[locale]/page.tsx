@@ -1,12 +1,11 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import Web3 from "web3";
-// @ts-ignore
-import * as thetajs from "@thetalabs/theta-js";
-import { SSRGetEncoderStatus } from "@/ssr/EdgeLauncher";
-import type { EncoderStatus } from "@/utils/ssr/classes/EdgeLauncher";
-import { compact, reduce } from "lodash";
+import { SSRGetEncoderStatus, SSRGetLavitaJobs } from "@/ssr/EdgeLauncher";
+import type { EncoderStatus, LavitaJob } from "@/utils/ssr/classes/EdgeLauncher";
+import Image from "next/image";
+import IMG_TFUEL from '@/images/icons/tfuel.svg';
+import IMG_LAVITA from '@/images/icons/lavita.jpeg';
 
 const servers: string[] = [
     'host-cloud.truefiction.cloud',
@@ -15,13 +14,24 @@ const servers: string[] = [
 ]
 
 export default function Homepage() {
-    const [statusses, setStatusses] = useState<Array<{ host: string, encoder: EncoderStatus }> | undefined>(undefined);
+    const [statusses, setStatusses] = useState<Array<{ host: string, encoder: EncoderStatus, lavitaJobs: LavitaJob[] }> | undefined>(undefined);
 
     async function test() {
-        const res = await Promise.all(
+        const res1 = await Promise.all(
             servers.map(host => SSRGetEncoderStatus(host).then(encoder => ({ host, encoder })))
         )
-        setStatusses(res);
+        const res2 = await Promise.all(
+            servers.map(host => SSRGetLavitaJobs(host).then(jobs => ({ host, jobs })))
+        )
+        setStatusses(servers.map(server => {
+            const encoder = res1.filter(item => item.host === server);
+            const lavitaJobs = res2.filter(item => item.host === server);
+            return {
+                host: server,
+                encoder: encoder[0].encoder,
+                lavitaJobs: lavitaJobs[0].jobs
+            }
+        }));
         // const web3 = new Web3('https://eth-rpc-api.thetatoken.org/rpc');
         // const balance = web3.utils.fromWei(await web3.eth.getBalance('0x792a58282cb1304fc29a67b79c90a7ec474cb64a'), 'ether');
         // console.log(balance)
@@ -37,7 +47,35 @@ export default function Homepage() {
 
     const allJobs = useMemo(() => {
         if(!statusses) return [];
-        return statusses.map(item => item.encoder.recent_jobs.map(job => ({ ...job, host: item.host }))).reduce((a, b) => [...a, ...b]).sort((a, b) => new Date(a.create_time) < new Date(b.create_time) ? 1 : -1)
+        let jobs: Array<{
+            created_at: Date,
+            host: string,
+            reward: number,
+            reward_type: 'tfuel' | 'lavita',
+            status: string,
+            finished_at: Date
+        }> = [];
+        for(const status of statusses) {
+            for(const tfueljob of status.encoder.recent_jobs)
+                jobs.push({
+                    host: status.host,
+                    created_at: new Date(tfueljob.create_time),
+                    finished_at: new Date(tfueljob.finish_time),
+                    reward: parseInt(tfueljob.reward_tfuelwei) / 1000000000000000000,
+                    reward_type: 'tfuel',
+                    status: tfueljob.error ? 'Error' : 'Success'
+                });
+            for(const lavitajob of status.lavitaJobs)
+                jobs.push({
+                    host: status.host,
+                    created_at: new Date(lavitajob.start_time),
+                    finished_at: new Date(lavitajob.end_time),
+                    reward: lavitajob.reward_amount / 1000000000000000000,
+                    reward_type: 'lavita',
+                    status: lavitajob.status
+                })
+        }
+        return jobs.sort((a, b) => a.created_at < b.created_at ? 1 : -1)
     }, [statusses])
 
     return (
@@ -45,9 +83,28 @@ export default function Homepage() {
             {statusses && (
                 <div className={`grid grid-cols-4`}>
                     {statusses.map((item, key) => (
-                        <div className={`flex flex-col bg-gray-700 rounded p-4`} key={key}>
+                        <div className={`flex flex-col space-y-1 bg-gray-700 rounded p-4`} key={key}>
                             <p className={`font-bold text-lg`}>{item.host}</p>
-                            <p>{item.encoder.pending_tfuel} <span className={`text-xs`}>pending TFUEL</span></p>
+                            <div className={`flex items-center space-x-2 text-sm`}>
+                                <Image
+                                    src={IMG_TFUEL}
+                                    alt={`TFUEL`}
+                                    width={20}
+                                    height={20}
+                                    className={`rounded-full`}
+                                />
+                                <p>{item.encoder.pending_tfuel}</p>
+                            </div>
+                            <div className={`flex items-center space-x-2 text-sm`}>
+                                <Image
+                                    src={IMG_LAVITA}
+                                    alt={`LAVITA`}
+                                    width={20}
+                                    height={20}
+                                    className={`rounded-full`}
+                                />
+                                <p>{item.lavitaJobs.reduce((a, b) => a + b.reward_amount, 0) / 1000000000000000000}</p>
+                            </div>
                             <p>{item.encoder.recent_jobs.length} <span className={`text-xs`}>jobs</span></p>
                         </div>
                     ))}
@@ -59,25 +116,21 @@ export default function Homepage() {
                         <tr className={`font-bold`}>
                             <td className={`pb-4`}>Created at</td>
                             <td className={`pb-4`}>Host</td>
-                            <td className={`pb-4`}>TFUEL</td>
+                            <td className={`pb-4`}>Reward</td>
                             <td className={`pb-4`}>Status</td>
                             <td className={`pb-4`}>Finished at</td>
                         </tr>
                     </thead>
                     <tbody>
-                        {allJobs.map((job, key) => {
-                            const created_at = new Date(job.create_time);
-                            const finished_at = new Date(job.finish_time);
-                            return (
-                                <tr key={key}>
-                                    <td className={`py-2`}>{created_at.getDate().toString().padStart(2, '0')}-{created_at.getMonth().toString().padStart(2, '0')}-{created_at.getFullYear()} {created_at.getHours().toString().padStart(2, '0')}:{created_at.getMinutes().toString().padStart(2, '0')}:{created_at.getSeconds().toString().padStart(2, '0')}</td>
-                                    <td className={`py-2`}>{job.host}</td>
-                                    <td className={`py-2`}>{parseInt(job.reward_tfuelwei) / 1000000000000000000}</td>
-                                    <td className={`py-2`}>{job.is_failed ? 'Failed' : 'Success'}</td>
-                                    <td className={`py-2`}>{finished_at.getDate().toString().padStart(2, '0')}-{finished_at.getMonth().toString().padStart(2, '0')}-{finished_at.getFullYear()} {finished_at.getHours().toString().padStart(2, '0')}:{finished_at.getMinutes().toString().padStart(2, '0')}:{finished_at.getSeconds().toString().padStart(2, '0')}</td>
-                                </tr>
-                            )
-                        })}
+                        {allJobs.map((job, key) => (
+                            <tr key={key}>
+                                <td className={`py-2`}>{job.created_at.getDate().toString().padStart(2, '0')}-{job.created_at.getMonth().toString().padStart(2, '0')}-{job.created_at.getFullYear()} {job.created_at.getHours().toString().padStart(2, '0')}:{job.created_at.getMinutes().toString().padStart(2, '0')}:{job.created_at.getSeconds().toString().padStart(2, '0')}</td>
+                                <td className={`py-2`}>{job.host}</td>
+                                <td className={`py-2`}>{job.reward} {job.reward_type}</td>
+                                <td className={`py-2`}>{job.status}</td>
+                                <td className={`py-2`}>{job.finished_at.getDate().toString().padStart(2, '0')}-{job.finished_at.getMonth().toString().padStart(2, '0')}-{job.finished_at.getFullYear()} {job.finished_at.getHours().toString().padStart(2, '0')}:{job.finished_at.getMinutes().toString().padStart(2, '0')}:{job.finished_at.getSeconds().toString().padStart(2, '0')}</td>
+                            </tr>
+                        ))}
                     </tbody>
                 </table>
             )}
