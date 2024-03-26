@@ -1,6 +1,6 @@
 import axios from "axios";
 
-type EdgeLauncherConfig = {
+export type EdgeLauncherConfig = {
     encoder_rpc_port: number,
     launcher_rpc_port: number,
     edgecore_rpc_port: number
@@ -104,7 +104,7 @@ export default class EdgeLauncher {
                     num: limit
                 }
             ]
-        })).body;
+        })).body || [];
     }
 
     async __rpcRequest(endpoint: 'encoder' | 'launcher' | 'edgecore', { method, params }: RpcRequestProps) {
